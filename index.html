@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공사 인원 관리 (오프라인 버전)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding-top: 1rem; }
+        .container { max-width: 800px; }
+        .card { margin-bottom: 1.5rem; }
+        .report-textarea {
+            font-family: 'D2Coding', 'Consolas', monospace; /* 코딩용 폰트 적용 */
+            white-space: pre;
+            font-size: 0.85rem;
+            height: 450px;
+        }
+        .btn-custom-danger {
+            --bs-btn-color: #fff;
+            --bs-btn-bg: #dc3545;
+            --bs-btn-border-color: #dc3545;
+            --bs-btn-hover-color: #fff;
+            --bs-btn-hover-bg: #bb2d3b;
+            --bs-btn-hover-border-color: #b02a37;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="text-center mb-4">🏗️ 공사 인원 관리 시스템</h2>
+
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold">
+                인원 등록
+            </div>
+            <div class="card-body">
+                <form id="add-form">
+                    <div class="row g-2">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">소속:</label>
+                            <input type="text" id="affiliation" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">대표 이름:</label>
+                            <input type="text" id="name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">인원 수:</label>
+                            <input type="number" id="count" class="form-control" value="1" min="1" required>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">차량 (번호와 차종):</label>
+                            <input type="text" id="vehicle" class="form-control" placeholder="없으면 비워두세요">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 mt-2">입영 등록</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold">
+                현장 인원 (퇴영 처리)
+            </div>
+            <div class="card-body">
+                <div id="records-list">
+                    <p class="text-center text-muted">현재 현장 인원이 없습니다.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold">
+                입영 보고서
+            </div>
+            <div class="card-body">
+                <textarea id="report-text" class="form-control report-textarea" readonly></textarea>
+                <button id="copy-btn" class="btn btn-success w-100 mt-3">📋 보고서 복사</button>
+            </div>
+        </div>
+        
+        <button id="clear-btn" class="btn btn-secondary w-100 mt-2 mb-4">전체 초기화</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- 기본 설정 (오류 수정됨) ---
+            const TOTAL_ARM_BANDS = 13; // ⭐ 수정된 부분: TOTAL_ARM BANDS -> TOTAL_ARM_BANDS
+            const TOTAL_FLAGS = 10;
+            const WORK_DESCRIPTION = "면회실 공사 작업";
+
+            // --- 데이터 저장소 (브라우저 메모리) ---
+            let onSiteRecords = [];
+            let totalEntrantsToday = 0;
+            let totalExitsToday = 0;
+
+            // --- HTML 요소 가져오기 ---
+            const addForm = document.getElementById('add-form');
+            const recordsListDiv = document.getElementById('records-list');
+            const reportTextArea = document.getElementById('report-text');
+            const clearBtn = document.getElementById('clear-btn');
+            const copyBtn = document.getElementById('copy-btn');
+
+            /** 입영 등록 처리 함수 */
+            function addEntry(event) {
+                event.preventDefault(); 
+                const affiliation = document.getElementById('affiliation').value.trim();
+                const name = document.getElementById('name').value.trim();
+                const count = parseInt(document.getElementById('count').value);
+                const vehicle = document.getElementById('vehicle').value.trim();
+                
+                if (!affiliation || !name || count < 1) {
+                    alert('소속, 대표 이름, 인원 수를 올바르게 입력해주세요.');
+                    return;
+                }
+
+                const groupId = `${affiliation}_${name}_${vehicle}_${new Date().getTime()}`;
+                onSiteRecords.push({ affiliation, name, count, vehicle, groupId });
+                totalEntrantsToday += count;
+                
+                updateDisplay();
+                addForm.reset(); 
+                document.getElementById('count').value = 1;
+            }
+
+            /** 퇴영 처리 함수 */
+            function removeEntry(groupId) {
+                const recordIndex = onSiteRecords.findIndex(rec => rec.groupId === groupId);
+                if (recordIndex > -1) {
+                    const removedRecord = onSiteRecords.splice(recordIndex, 1)[0];
+                    totalExitsToday += removedRecord.count;
+                    updateDisplay();
+                }
+            }
+            
+            /** 전체 초기화 함수 */
+            function clearAll() {
+                if (confirm('정말로 모든 기록을 삭제하고 초기화하시겠습니까?')) {
+                    onSiteRecords = [];
+                    totalEntrantsToday = 0;
+                    totalExitsToday = 0;
+                    updateDisplay();
+                }
+            }
+
+            /** 화면의 모든 내용을 업데이트하는 함수 */
+            function updateDisplay() {
+                updateRecordsList();
+                updateReport();
+            }
+
+            /** 현장 인원 목록을 다시 그리는 함수 */
+            function updateRecordsList() {
+                if (onSiteRecords.length === 0) {
+                    recordsListDiv.innerHTML = '<p class="text-center text-muted">현재 현장 인원이 없습니다.</p>';
+                    return;
+                }
+                recordsListDiv.innerHTML = '<ul class="list-group"></ul>';
+                const ul = recordsListDiv.querySelector('ul');
+                onSiteRecords.forEach(rec => {
+                    const personnelStr = rec.count > 1 ? `${rec.name} 등 ${rec.count}명` : `${rec.name} 1명`;
+                    const vehicleStr = rec.vehicle ? rec.vehicle : '도보';
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    li.innerHTML = `
+                        <div>
+                            <span class="fw-bold">${rec.affiliation}</span> - ${personnelStr}
+                            <small class="text-muted d-block">${vehicleStr}</small>
+                        </div>
+                        <button class="btn btn-custom-danger btn-sm">퇴영</button>`;
+                    li.querySelector('button').addEventListener('click', () => removeEntry(rec.groupId));
+                    ul.appendChild(li);
+                });
+            }
+            
+            /** 보고서를 다시 생성하는 함수 */
+            function updateReport() {
+                const numOnSitePeople = onSiteRecords.reduce((sum, rec) => sum + rec.count, 0);
+                const numOnSiteVehicles = onSiteRecords.filter(rec => rec.vehicle).length;
+                const armbandsIssued = numOnSitePeople;
+                const flagsIssued = numOnSiteVehicles;
+                const armbandsHeld = TOTAL_ARM_BANDS - armbandsIssued; // ⭐ 수정된 부분
+                const flagsHeld = TOTAL_FLAGS - flagsIssued;
+
+                const reportParts = ["단결!", "공사 인원 입영 보고 드립니다.\n"];
+                onSiteRecords.forEach(rec => {
+                    const personnelStr = rec.count > 1 ? `${rec.name} 등 ${rec.count}명` : `${rec.name} 1명`;
+                    reportParts.push(`소속: ${rec.affiliation}`);
+                    reportParts.push(`인원: ${personnelStr}`);
+                    if (rec.vehicle) reportParts.push(`차량: ${rec.vehicle}`);
+                    reportParts.push("");
+                });
+                reportParts.push(
+                    "<완장 및 수기 보유 현황>",
+                    `✅ 청색 완장: ${armbandsHeld}개`,
+                    `✅ 청색 수기: ${flagsHeld}개`, "",
+                    `불출 : 청색 완장 ${armbandsIssued}개, 수기 ${flagsIssued}개`, "",
+                    `오늘 공사내용은 ${WORK_DESCRIPTION}입니다.`, "",
+                    `총 ${totalEntrantsToday}명 입영 중 ${totalExitsToday}명 퇴영, ${numOnSitePeople}명 공사 중, 차량 ${numOnSiteVehicles}대 입니다.`, "",
+                    "이상입니다."
+                );
+                reportTextArea.value = reportParts.join('\n');
+            }
+
+            /** 보고서 복사 함수 */
+            function copyReport() {
+                navigator.clipboard.writeText(reportTextArea.value).then(() => {
+                    const originalText = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '✅ 복사 완료!';
+                    copyBtn.classList.replace('btn-success', 'btn-secondary');
+                    setTimeout(() => {
+                        copyBtn.innerHTML = originalText;
+                        copyBtn.classList.replace('btn-secondary', 'btn-success');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('복사 실패:', err);
+                    alert('복사에 실패했습니다.');
+                });
+            }
+
+            // --- 이벤트 리스너 연결 ---
+            addForm.addEventListener('submit', addEntry);
+            clearBtn.addEventListener('click', clearAll);
+            copyBtn.addEventListener('click', copyReport);
+
+            // --- 페이지 첫 로드 시 화면 초기화 ---
+            updateDisplay();
+        });
+    </script>
+</body>
+</html>

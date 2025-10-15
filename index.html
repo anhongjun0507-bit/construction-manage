@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>공사 인원 관리 (오프라인 버전)</title>
+    <title>공사 인원 관리 시스템</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; padding-top: 1rem; }
@@ -31,7 +31,19 @@
 
         <div class="card shadow-sm">
             <div class="card-header fw-bold">
-                인원 등록
+                차량 검색 (보고서 바로 만들기)
+            </div>
+            <div class="card-body">
+                <form id="search-form" class="d-flex gap-2">
+                    <input type="text" id="search-query" class="form-control" placeholder="차량 번호 4자리를 입력하세요" maxlength="4" required>
+                    <button type="submit" class="btn btn-info flex-shrink-0">검색</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold">
+                인원 등록 (목록에 추가)
             </div>
             <div class="card-body">
                 <form id="add-form">
@@ -78,16 +90,36 @@
                 <button id="copy-btn" class="btn btn-success w-100 mt-3">📋 보고서 복사</button>
             </div>
         </div>
-        
+
         <button id="clear-btn" class="btn btn-secondary w-100 mt-2 mb-4">전체 초기화</button>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- 기본 설정 (오류 수정됨) ---
-            const TOTAL_ARM_BANDS = 13; // ⭐ 수정된 부분: TOTAL_ARM BANDS -> TOTAL_ARM_BANDS
+            // --- 기본 설정 ---
+            const TOTAL_ARM_BANDS = 13;
             const TOTAL_FLAGS = 10;
             const WORK_DESCRIPTION = "면회실 공사 작업";
+
+            // ⭐ 신규 기능: 보고서에서 추출한 전체 데이터베이스 ⭐
+            const predefinedData = [
+                { affiliation: '진흥건설', person: '이대우', vehicle: '0622 봉고' },
+                { affiliation: '진흥건설', person: '김성원', vehicle: '8347 포터' },
+                { affiliation: '진흥건설', person: '강장리', vehicle: '1104 포터' },
+                { affiliation: '진흥건설', person: '장도영', vehicle: '3419 봉고' },
+                { affiliation: '상우산업개발', person: '여준구', vehicle: '2490 포터' },
+                { affiliation: '상우산업개발', person: '김응우', vehicle: '3935 포터' },
+                { affiliation: '진흥건설', person: '박정열', vehicle: '2864 카니발' },
+                { affiliation: '진흥건설', person: '김성원', vehicle: '8347 봉고' },
+                { affiliation: '상우산업개발', person: '여은성', vehicle: '9307 코나' },
+                { affiliation: '상우산업개발', person: '채희성', vehicle: '4094 5톤 트럭' },
+                { affiliation: '진흥건설', person: '깅장리', vehicle: '1104 포토' },
+                { affiliation: '진흥건설', person: '한승우', vehicle: '0521 포터' },
+                { affiliation: '제아이이엔지', person: '금석영', vehicle: '3709 포터' },
+                { affiliation: '상우산업개발', person: '박상현', vehicle: '5561 칸' },
+                { affiliation: '상우산업개발', person: '김진완', vehicle: '6741 포터' },
+                { affiliation: '상우산업개발', person: '이병귀', vehicle: '6483 포터' }
+            ];
 
             // --- 데이터 저장소 (브라우저 메모리) ---
             let onSiteRecords = [];
@@ -95,20 +127,63 @@
             let totalExitsToday = 0;
 
             // --- HTML 요소 가져오기 ---
+            const searchForm = document.getElementById('search-form');
+            const searchQueryInput = document.getElementById('search-query');
             const addForm = document.getElementById('add-form');
             const recordsListDiv = document.getElementById('records-list');
             const reportTextArea = document.getElementById('report-text');
             const clearBtn = document.getElementById('clear-btn');
             const copyBtn = document.getElementById('copy-btn');
 
+            /** 차량 검색 처리 함수 */
+            function handleSearch(event) {
+                event.preventDefault();
+                const query = searchQueryInput.value.trim();
+                if (query.length === 0) return;
+
+                const result = predefinedData.find(item => item.vehicle.includes(query));
+
+                if (result) {
+                    generateSingleEntryReport(result);
+                    searchQueryInput.value = '';
+                } else {
+                    alert('해당 차량 번호를 찾을 수 없습니다.');
+                }
+            }
+            
+            /** 검색된 단일 항목으로 보고서를 생성하는 함수 */
+            function generateSingleEntryReport(record) {
+                const armbandsIssued = 1;
+                const flagsIssued = record.vehicle ? 1 : 0;
+                const armbandsHeld = TOTAL_ARM_BANDS - armbandsIssued;
+                const flagsHeld = TOTAL_FLAGS - flagsIssued;
+
+                const reportParts = ["단결!", "공사 인원 입영 보고 드립니다.\n"];
+                reportParts.push(`소속: ${record.affiliation}`);
+                reportParts.push(`인원: ${record.person} 1명`);
+                if (record.vehicle) reportParts.push(`차량: ${record.vehicle}`);
+                reportParts.push("");
+                
+                reportParts.push(
+                    "<완장 및 수기 보유 현황>",
+                    `✅ 청색 완장: ${armbandsHeld}개`,
+                    `✅ 청색 수기: ${flagsHeld}개`, "",
+                    `불출 : 청색 완장 ${armbandsIssued}개, 수기 ${flagsIssued}개`, "",
+                    `오늘 공사내용은 ${WORK_DESCRIPTION}입니다.`, "",
+                    `총 1명 입영 중 0명 퇴영, 1명 공사 중, 차량 1대 입니다.`, "",
+                    "이상입니다."
+                );
+                reportTextArea.value = reportParts.join('\n');
+            }
+
             /** 입영 등록 처리 함수 */
             function addEntry(event) {
-                event.preventDefault(); 
+                event.preventDefault();
                 const affiliation = document.getElementById('affiliation').value.trim();
                 const name = document.getElementById('name').value.trim();
                 const count = parseInt(document.getElementById('count').value);
                 const vehicle = document.getElementById('vehicle').value.trim();
-                
+
                 if (!affiliation || !name || count < 1) {
                     alert('소속, 대표 이름, 인원 수를 올바르게 입력해주세요.');
                     return;
@@ -117,9 +192,8 @@
                 const groupId = `${affiliation}_${name}_${vehicle}_${new Date().getTime()}`;
                 onSiteRecords.push({ affiliation, name, count, vehicle, groupId });
                 totalEntrantsToday += count;
-                
                 updateDisplay();
-                addForm.reset(); 
+                addForm.reset();
                 document.getElementById('count').value = 1;
             }
 
@@ -132,7 +206,7 @@
                     updateDisplay();
                 }
             }
-            
+
             /** 전체 초기화 함수 */
             function clearAll() {
                 if (confirm('정말로 모든 기록을 삭제하고 초기화하시겠습니까?')) {
@@ -143,10 +217,10 @@
                 }
             }
 
-            /** 화면의 모든 내용을 업데이트하는 함수 */
+            /** 화면의 모든 내용을 업데이트하는 함수 (현장 인원 기준) */
             function updateDisplay() {
                 updateRecordsList();
-                updateReport();
+                updateOnSiteReport();
             }
 
             /** 현장 인원 목록을 다시 그리는 함수 */
@@ -172,14 +246,14 @@
                     ul.appendChild(li);
                 });
             }
-            
-            /** 보고서를 다시 생성하는 함수 */
-            function updateReport() {
+
+            /** 현장 인원 목록 기준으로 보고서를 생성하는 함수 */
+            function updateOnSiteReport() {
                 const numOnSitePeople = onSiteRecords.reduce((sum, rec) => sum + rec.count, 0);
                 const numOnSiteVehicles = onSiteRecords.filter(rec => rec.vehicle).length;
-                const armbandsIssued = numOnSitePeople;
-                const flagsIssued = numOnSiteVehicles;
-                const armbandsHeld = TOTAL_ARM_BANDS - armbandsIssued; // ⭐ 수정된 부분
+                const armbandsIssued = Math.min(numOnSitePeople, TOTAL_ARM_BANDS);
+                const flagsIssued = Math.min(numOnSiteVehicles, TOTAL_FLAGS);
+                const armbandsHeld = TOTAL_ARM_BANDS - armbandsIssued;
                 const flagsHeld = TOTAL_FLAGS - flagsIssued;
 
                 const reportParts = ["단결!", "공사 인원 입영 보고 드립니다.\n"];
@@ -219,6 +293,7 @@
             }
 
             // --- 이벤트 리스너 연결 ---
+            searchForm.addEventListener('submit', handleSearch);
             addForm.addEventListener('submit', addEntry);
             clearBtn.addEventListener('click', clearAll);
             copyBtn.addEventListener('click', copyReport);

@@ -119,7 +119,7 @@
 
             // --- 데이터 저장소 ---
             let onSiteRecords = [];
-            let retiredRecords = []; // ⭐ 퇴영자 목록
+            let retiredRecords = []; // 퇴영자 목록
             let totalEntrantsToday = 0;
             let totalExitsToday = 0;
 
@@ -172,7 +172,7 @@
                 document.getElementById('count').value = 1;
             }
 
-            /** ⭐ 변경된 퇴영 처리 함수 */
+            /** 퇴영 처리 함수 */
             function removeEntry(groupId) {
                 const recordIndex = onSiteRecords.findIndex(rec => rec.groupId === groupId);
                 if (recordIndex > -1) {
@@ -183,7 +183,7 @@
                 }
             }
 
-            /** ⭐ 퇴영 보고서 명단만 초기화 */
+            /** 퇴영 보고서 명단만 초기화 */
             function clearExitReport() {
                 if (confirm('퇴영 보고서의 명단만 초기화하시겠습니까? (총 인원수는 유지됩니다)')) {
                     retiredRecords = [];
@@ -246,10 +246,16 @@
                 entryReportTextArea.value = reportParts.join('\n');
             }
 
-            /** ⭐ 퇴영 보고서 업데이트 */
+            /** ⭐ 수정된 퇴영 보고서 업데이트 함수 */
             function updateExitReport() {
+                // 재고 계산은 현재 '현장에 남아있는' 인원을 기준으로 동일하게 계산
                 const numOnSitePeople = onSiteRecords.reduce((sum, rec) => sum + rec.count, 0);
                 const numOnSiteVehicles = onSiteRecords.filter(rec => rec.vehicle).length;
+                const armbandsIssued = Math.min(numOnSitePeople, TOTAL_ARM_BANDS);
+                const flagsIssued = Math.min(numOnSiteVehicles, TOTAL_FLAGS);
+                const armbandsHeld = TOTAL_ARM_BANDS - armbandsIssued;
+                const flagsHeld = TOTAL_FLAGS - flagsIssued;
+
                 let reportParts = ["단결!", "공사 인원 퇴영 보고 드립니다.\n"];
                 retiredRecords.forEach(rec => {
                     reportParts.push(`소속: ${rec.affiliation}`);
@@ -257,9 +263,11 @@
                     if (rec.vehicle) reportParts.push(`차량: ${rec.vehicle}`);
                     reportParts.push("");
                 });
+                
+                // ⭐ 수정된 부분: 재고 현황을 입영 보고서와 동일하게 표시
                 reportParts.push(
-                    "<완장 및 수기 보유 현황>", `✅ 청색 완장: ${TOTAL_ARM_BANDS}개`, `✅ 청색 수기: ${TOTAL_FLAGS}개`, "",
-                    "불출 : 청색 완장 0개, 수기 0개", "",
+                    "<완장 및 수기 보유 현황>", `✅ 청색 완장: ${armbandsHeld}개`, `✅ 청색 수기: ${flagsHeld}개`, "",
+                    `불출 : 청색 완장 ${armbandsIssued}개, 수기 ${flagsIssued}개`, "",
                     `오늘 공사내용은 ${WORK_DESCRIPTION}입니다.`, "",
                     `총 ${totalEntrantsToday}명 입영 중 ${totalExitsToday}명 퇴영, ${numOnSitePeople}명 공사 중, 차량 ${numOnSiteVehicles}대 입니다.`, "",
                     "이상입니다."

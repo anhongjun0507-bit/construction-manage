@@ -76,18 +76,18 @@
                 <div class="row">
                     <div class="col-md-6">
                         <div class="card shadow-sm">
-                            <div class="card-header fw-bold">입영 보고서</div>
+                            <div class="card-header fw-bold">입영 보고서 (직접 수정 가능)</div>
                             <div class="card-body">
-                                <textarea id="entry-report-text" class="form-control report-textarea" readonly></textarea>
+                                <textarea id="entry-report-text" class="form-control report-textarea"></textarea>
                                 <button id="copy-entry-btn" class="btn btn-success w-100 mt-3">📋 입영 보고서 복사</button>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="card shadow-sm">
-                            <div class="card-header fw-bold">퇴영 보고서</div>
+                            <div class="card-header fw-bold">퇴영 보고서 (직접 수정 가능)</div>
                             <div class="card-body">
-                                <textarea id="exit-report-text" class="form-control report-textarea" readonly></textarea>
+                                <textarea id="exit-report-text" class="form-control report-textarea"></textarea>
                                 <button id="copy-exit-btn" class="btn btn-warning w-100 mt-3">📋 퇴영 보고서 복사</button>
                             </div>
                         </div>
@@ -246,9 +246,8 @@
                 entryReportTextArea.value = reportParts.join('\n');
             }
 
-            /** ⭐ 수정된 퇴영 보고서 업데이트 함수 */
+            /** 퇴영 보고서 업데이트 */
             function updateExitReport() {
-                // 재고 계산은 현재 '현장에 남아있는' 인원을 기준으로 동일하게 계산
                 const numOnSitePeople = onSiteRecords.reduce((sum, rec) => sum + rec.count, 0);
                 const numOnSiteVehicles = onSiteRecords.filter(rec => rec.vehicle).length;
                 const armbandsIssued = Math.min(numOnSitePeople, TOTAL_ARM_BANDS);
@@ -264,7 +263,6 @@
                     reportParts.push("");
                 });
                 
-                // ⭐ 수정된 부분: 재고 현황을 입영 보고서와 동일하게 표시
                 reportParts.push(
                     "<완장 및 수기 보유 현황>", `✅ 청색 완장: ${armbandsHeld}개`, `✅ 청색 수기: ${flagsHeld}개`, "",
                     `불출 : 청색 완장 ${armbandsIssued}개, 수기 ${flagsIssued}개`, "",
